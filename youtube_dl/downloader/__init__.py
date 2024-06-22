@@ -2,14 +2,25 @@ from __future__ import unicode_literals
 
 from ..utils import (
     determine_protocol,
+    _get_suitable_downloader,
 )
 
+branch_coverage = {
+    "get_suitable_downloader_1": False,  # branch for calling determine_protocol
+    "get_suitable_downloader_2": False   # branch for calling _get_suitable_downloader
+}
+
+branch_coverage = {
+    "get_suitable_downloader_1": False,  # branch for calling determine_protocol
+    "get_suitable_downloader_2": False   # branch for calling _get_suitable_downloader
+}
 
 def get_suitable_downloader(info_dict, params={}):
+    branch_coverage["get_suitable_downloader_1"] = True
     info_dict['protocol'] = determine_protocol(info_dict)
     info_copy = info_dict.copy()
+    branch_coverage["get_suitable_downloader_2"] = True
     return _get_suitable_downloader(info_copy, params)
-
 
 # Some of these require get_suitable_downloader
 from .common import FileDownloader
@@ -38,12 +49,8 @@ PROTOCOL_MAP = {
     'niconico_dmc': NiconicoDmcFD,
 }
 
-
 def _get_suitable_downloader(info_dict, params={}):
     """Get the downloader class that can handle the info dict."""
-
-    # if (info_dict.get('start_time') or info_dict.get('end_time')) and not info_dict.get('requested_formats') and FFmpegFD.can_download(info_dict):
-    #     return FFmpegFD
 
     external_downloader = params.get('external_downloader')
     if external_downloader is not None:
@@ -65,7 +72,6 @@ def _get_suitable_downloader(info_dict, params={}):
         return FFmpegFD
 
     return PROTOCOL_MAP.get(protocol, HttpFD)
-
 
 __all__ = [
     'get_suitable_downloader',
