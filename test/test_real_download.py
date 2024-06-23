@@ -7,7 +7,10 @@ from youtube_dl.downloader.dash import DashSegmentsFD, branch_coverage
 class TestDashFDRealDownload(unittest.TestCase):
 
     def setUp(self):
-        self.dash_fd = DashSegmentsFD()
+        # Mock the required arguments
+        self.ydl = MagicMock()
+        self.params = {}
+        self.dash_fd = DashSegmentsFD(self.ydl, self.params)
 
     @patch('youtube_dl.downloader.dash.DashSegmentsFD._download_fragment')
     @patch('youtube_dl.downloader.dash.DashSegmentsFD._finish_frag_download')

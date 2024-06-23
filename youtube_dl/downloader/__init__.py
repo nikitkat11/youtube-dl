@@ -1,14 +1,6 @@
 from __future__ import unicode_literals
 
-from ..utils import (
-    determine_protocol,
-    _get_suitable_downloader,
-)
-
-branch_coverage = {
-    "get_suitable_downloader_1": False,  # branch for calling determine_protocol
-    "get_suitable_downloader_2": False   # branch for calling _get_suitable_downloader
-}
+from ..utils import determine_protocol
 
 branch_coverage = {
     "get_suitable_downloader_1": False,  # branch for calling determine_protocol
