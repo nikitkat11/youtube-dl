@@ -247,13 +247,25 @@ def _add_ns(prop, ver=1):
     return '{http://ns.adobe.com/f4m/%d.0}%s' % (ver, prop)
 
 
+branch_coverage = {
+    "get_base_url_1": False,  # branch for if base_url is found
+    "get_base_url_2": False   # branch for if base_url is not found
+}
+
 def get_base_url(manifest):
     base_url = xpath_text(
         manifest, [_add_ns('baseURL'), _add_ns('baseURL', 2)],
         'base URL', default=None)
     if base_url:
+        branch_coverage["get_base_url_1"] = True
         base_url = base_url.strip()
+    else:
+        branch_coverage["get_base_url_2"] = True
     return base_url
+
+def print_coverage():
+    for branch, hit in branch_coverage.items():
+        print(f"{branch} was {'hit' if hit else 'not hit'}")
 
 
 class F4mFD(FragmentFD):

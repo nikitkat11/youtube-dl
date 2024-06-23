@@ -8,14 +8,7 @@ from ..utils import (
     DownloadError,
     urljoin,
 )
-from ..compat import compat_HTTPError
 
-branch_coverage = {
-    "real_download_1": False,  # if branch for fragments is None
-    "real_download_2": False,  # if branch for not is_live
-    "real_download_3": False,  # try branch in for loop
-    "real_download_4": False   # except branch in for loop
-}
 
 class DashSegmentsFD(FragmentFD):
     """
@@ -25,48 +18,66 @@ class DashSegmentsFD(FragmentFD):
     FD_NAME = 'dashsegments'
 
     def real_download(self, filename, info_dict):
-        self.report_destination(filename)
-        tmpfilename = self.temp_name(filename)
-
-        is_live = info_dict.get('is_live')
+        fragment_base_url = info_dict.get('fragment_base_url')
+        fragments = info_dict['fragments'][:1] if self.params.get(
+            'test', False) else info_dict['fragments']
 
         ctx = {
             'filename': filename,
-            'total_frags': None,
+            'total_frags': len(fragments),
         }
 
-        fragments = info_dict.get('fragments', [])
+        self._prepare_and_start_frag_download(ctx)
 
-        if fragments is None:
-            branch_coverage["real_download_1"] = True
-            return False
+        fragment_retries = self.params.get('fragment_retries', 0)
+        skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
 
-        branch_coverage["real_download_2"] = True if not is_live else branch_coverage["real_download_2"]
-        if not is_live:
-            self.report_progress(ctx)
+        for frag_index, fragment in enumerate(fragments, 1):
+            if frag_index <= ctx['fragment_index']:
+                continue
+            success = False
+            # In DASH, the first segment contains necessary headers to
+            # generate a valid MP4 file, so always abort for the first segment
+            fatal = frag_index == 1 or not skip_unavailable_fragments
+            fragment_url = fragment.get('url')
+            if not fragment_url:
+                assert fragment_base_url
+                fragment_url = urljoin(fragment_base_url, fragment['path'])
+            headers = info_dict.get('http_headers')
+            fragment_range = fragment.get('range')
+            if fragment_range:
+                headers = headers.copy() if headers else {}
+                headers['Range'] = 'bytes=%s' % (fragment_range,)
+            for count in itertools.count():
+                try:
+                    success, frag_content = self._download_fragment(ctx, fragment_url, info_dict, headers)
+                    if not success:
+                        return False
+                    self._append_fragment(ctx, frag_content)
+                except compat_urllib_error.HTTPError as err:
+                    # YouTube may often return 404 HTTP error for a fragment causing the
+                    # whole download to fail. However if the same fragment is immediately
+                    # retried with the same request data this usually succeeds (1-2 attempts
+                    # is usually enough) thus allowing to download the whole file successfully.
+                    # To be future-proof we will retry all fragments that fail with any
+                    # HTTP error.
+                    if count < fragment_retries:
+                        self.report_retry_fragment(err, frag_index, count + 1, fragment_retries)
+                        continue
+                except DownloadError:
+                    # Don't retry fragment if error occurred during HTTP downloading
+                    # itself since it has its own retry settings
+                    if fatal:
+                        raise
+                break
 
-        success = True
-
-        fragment_retries = self.params.get('fragment_retries', 10)
-        frag_index = 0
-
-        for fragment in fragments:
-            frag_index += 1
-            try:
-                success &= self._download_fragment(ctx, fragment, info_dict)
-                branch_coverage["real_download_3"] = True
-            except compat_HTTPError as err:
-                success = False
-                self.report_retry(err, frag_index, fragment_retries)
-                if not self._retry_fragment(ctx, fragment, info_dict):
-                    break
-                branch_coverage["real_download_4"] = True
+            if not success:
+                if not fatal:
+                    self.report_skip_fragment(frag_index)
+                    continue
+                self.report_error('giving up after %s fragment retries' % count)
+                return False
 
         self._finish_frag_download(ctx)
-
-        if not success:
-            return False
-
-        self._append_fragment(ctx, None)
 
         return True
