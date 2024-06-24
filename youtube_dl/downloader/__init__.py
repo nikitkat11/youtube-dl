@@ -4,10 +4,16 @@ from ..utils import (
     determine_protocol,
 )
 
+branch_coverage = {
+    "get_suitable_downloader_1": False,  # branch for calling determine_protocol
+    "get_suitable_downloader_2": False   # branch for calling _get_suitable_downloader
+}
 
 def get_suitable_downloader(info_dict, params={}):
+    branch_coverage["get_suitable_downloader_1"] = True
     info_dict['protocol'] = determine_protocol(info_dict)
     info_copy = info_dict.copy()
+    branch_coverage["get_suitable_downloader_2"] = True
     return _get_suitable_downloader(info_copy, params)
 
 
